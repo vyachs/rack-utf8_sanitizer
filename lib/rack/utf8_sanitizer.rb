@@ -13,12 +13,13 @@ module Rack
     end
 
     # http://rack.rubyforge.org/doc/SPEC.html
-    URI_FIELDS  = %w(
-        SCRIPT_NAME
-        REQUEST_PATH REQUEST_URI PATH_INFO
-        QUERY_STRING
-        HTTP_REFERER
-    )
+    URI_FIELDS  = %w(SCRIPT_NAME
+                     REQUEST_PATH
+                     REQUEST_URI
+                     PATH_INFO
+                     QUERY_STRING
+                     HTTP_REFERER
+                     ORIGINAL_FULLPATH)
 
     def sanitize(env)
       env.each do |key, value|
@@ -31,15 +32,11 @@ module Rack
           # treating as UTF-8, then sanitize the result and encode it back.
           #
           # The result is guaranteed to be UTF-8-safe.
+          #p '=========================================================================='
+          #p "#{key} - #{value}"
+          decoded_value = unescape_unreserved(sanitize_string(value, key))
 
-          decoded_value = unescape_unreserved(
-              sanitize_string(value).
-              force_encoding('ASCII-8BIT'))
-
-          env[key] = transfer_frozen(value,
-              escape_unreserved(
-                sanitize_string(decoded_value)))
-
+          env[key] = transfer_frozen(value, escape_unreserved(sanitize_string(decoded_value)))
         elsif key =~ /^HTTP_/
           # Just sanitize the headers and leave them in UTF-8. There is
           # no reason to have UTF-8 in headers, but if it's valid, let it be.
@@ -87,18 +84,14 @@ module Rack
       URI.escape(input, UNSAFE)
     end
 
-    def sanitize_string(input)
+    def sanitize_string(input, kk = nil)
       if input.is_a? String
         input = input.dup.force_encoding('UTF-8')
 
         if input.valid_encoding?
           input
         else
-          input.
-            force_encoding('ASCII-8BIT').
-            encode!('UTF-8',
-                    invalid: :replace,
-                    undef:   :replace)
+          input.force_encoding('CP1251').encode!('UTF-8', invalid: :replace, undef: :replace)
         end
       else
         input
